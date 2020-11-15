@@ -1,0 +1,37 @@
+image: golang:1.13.6
+stages:
+  - lint
+  - test
+  - build
+
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+
+.build_template: &build_definition
+  before_script:
+    - echo -e "machine gitlab.com\nlogin gitlab-ci-token\npassword ${CI_JOB_TOKEN}" > ~/.netrc
+    - cd ${CI_PROJECT_DIR}
+    - go mod tidy
+
+lint:
+  stage: lint
+  <<: *build_definition
+  script:
+    - curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.23.1
+    - golangci-lint run
+
+test:
+  stage: test
+  <<: *build_definition
+  script:
+    - go test -v .
+
+build:
+  stage: build
+  <<: *build_definition
+  variables:
+    EXE_NAME: auth-ms
+    GOOS: linux
+    CGO_ENABLED: 0
+  script:
+    - go build -installsuffix=dynlink -gcflags=-dynlink -buildmode=plugin
